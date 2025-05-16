@@ -1,0 +1,10 @@
+<h1>{{.Title}}</h1>
+
+<div>{{printf "%s" .Body}}</div>
+
+<h2>All pages here:</h2>
+<div>
+    {{ range $index, $page := .List}}
+        <a href="{{$page.Link}}">{{$page.Title}}</a><br>
+    {{ end }}
+</div>

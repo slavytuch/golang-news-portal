@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>News portal</title>
+</head>
+<body>
+    <h1>News list</h1>
+    {{ range $index, $item := . }}
+        <div>
+            <a href="/detail/{{.Id}}">{{ $item.Title}}</a>
+        </div>
+    {{ end }}
+    <div>
+        <a href="/new/">Create news</a>
+    </div>
+</body>
+</html>
