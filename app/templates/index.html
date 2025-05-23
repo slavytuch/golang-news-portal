@@ -11,6 +11,10 @@
         <div>
             <a href="/detail/{{.Id}}">{{ $item.Title}}</a>
         </div>
+        
+        {{ if $item.Image.Valid }}
+            <img src="/images/{{$item.Image.String}}" style="max-width: 300px;">
+        {{ end }}
     {{ end }}
     <div>
         <a href="/new/">Create news</a>

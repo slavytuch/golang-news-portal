@@ -7,7 +7,7 @@
 </head>
 <body>
     <h1>Editing {{.Title}}</h1>
-    <form method="POST" action="/update/{{.Id}}">
+    <form method="POST" action="/update/{{.Id}}" enctype="multipart/form-data">
         <label>
             Title <br> <br>
             <input name="title" type="text" value="{{.Title}}">
@@ -15,6 +15,12 @@
         <br><br>
         <label for="body">Body</label> <br><br>
         <textarea name="body">{{.Body}}</textarea> <br><br>
+
+        <label>
+            Change Image:
+            <input type="file" name="image">
+        </label>
+        <br>
         <button>Save</button>
     </form>
 </body>

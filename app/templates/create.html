@@ -7,7 +7,7 @@
 </head>
 <body>
     <h1>Creating</h1>
-    <form method="POST" action="/create/">
+    <form method="POST" action="/create/" enctype="multipart/form-data">
         <label>
             Title <br> <br>
             <input name="title" type="text" required>
@@ -15,6 +15,10 @@
         <br><br>
         <label for="body">Body</label> <br><br>
         <textarea name="body" required></textarea> <br><br>
+        <label>
+            Image:
+            <input type="file" name="image">
+        </label>
         <button>Create</button>
     </form>
 </body>
