@@ -16,13 +16,6 @@ import (
 	"github.com/go-sql-driver/mysql"
 )
 
-type NewsItem struct {
-	Id    int
-	Title string
-	Body  string
-	Image sql.NullString
-}
-
 var db *sql.DB
 
 func getNewsById(id int) (*NewsItem, error) {
@@ -79,7 +72,7 @@ func indexPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func detailPageHandler(w http.ResponseWriter, r *http.Request) {
-	newsId, err := strconv.Atoi(r.URL.Path[len("/detail/"):])
+	newsId, err := strconv.Atoi(r.PathValue("id"))
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,7 +91,7 @@ func detailPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func editPageHandler(w http.ResponseWriter, r *http.Request) {
-	newsId, err := strconv.Atoi(r.URL.Path[len("/edit/"):])
+	newsId, err := strconv.Atoi(r.PathValue("id"))
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -117,7 +110,7 @@ func editPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updatePageHandler(w http.ResponseWriter, r *http.Request) {
-	newsId, err := strconv.Atoi(r.URL.Path[len("/update/"):])
+	newsId, err := strconv.Atoi(r.PathValue("id"))
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -131,7 +124,7 @@ func updatePageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	file, header, _ := r.FormFile("image")
+	file, header, err := r.FormFile("image")
 
 	if file != nil {
 
@@ -163,11 +156,12 @@ func updatePageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func saveImage(f multipart.File, h *multipart.FileHeader) (*string, error) {
-	defer f.Close()
+	imagesDir := filepath.Join(".", "images")
 
-	path := filepath.Join(".", "images")
+	fullPath := imagesDir + "/" + h.Filename
 
-	fullPath := path + "/" + h.Filename
+	fmt.Println(imagesDir)
+	fmt.Println(fullPath)
 
 	fd, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, os.ModePerm)
 
@@ -258,13 +252,15 @@ func main() {
 		panic(err)
 	}
 
-	http.HandleFunc("/", indexPageHandler)
-	http.HandleFunc("/detail/", detailPageHandler)
-	http.HandleFunc("/edit/", editPageHandler)
-	http.HandleFunc("/update/", updatePageHandler)
-	http.HandleFunc("/new/", creationPageHandler)
-	http.HandleFunc("/create/", createPageHandler)
-	http.Handle("/images/", http.StripPrefix("/images", http.FileServer(http.Dir(path.Join(rootdir, "images/")))))
+	mux := http.NewServeMux()
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	mux.HandleFunc("GET /", indexPageHandler)
+	mux.HandleFunc("GET /detail/{id}", detailPageHandler)
+	mux.HandleFunc("GET /edit/{id}", editPageHandler)
+	mux.HandleFunc("POST /update/{id}", updatePageHandler)
+	mux.HandleFunc("GET /new/", creationPageHandler)
+	mux.HandleFunc("POST /create/", createPageHandler)
+	mux.Handle("GET /images/", http.StripPrefix("/images", http.FileServer(http.Dir(path.Join(rootdir, "images/")))))
+
+	log.Fatal(http.ListenAndServe(":8080", mux))
 }
