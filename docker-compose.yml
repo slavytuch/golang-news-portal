@@ -6,6 +6,7 @@ services:
       target: dev
     volumes:
       - ./app:/opt/app/api
+      - ./.env:/opt/app/.env
     ports:
       - 8080:8080
     networks:

@@ -14,6 +14,7 @@ import (
 	"strconv"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 var db *sql.DB
@@ -226,15 +227,19 @@ func creationPageHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
+	err := godotenv.Load("../.env")
+
+	if err != nil {
+		log.Fatal("Error loading .env file: " + err.Error())
+	}
+
 	dbConfig := mysql.NewConfig()
 
-	dbConfig.Addr = "mysql:3306"
-	dbConfig.User = "sail"
-	dbConfig.Passwd = "password"
+	dbConfig.Addr = os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT")
+	dbConfig.User = os.Getenv("DB_USERNAME")
+	dbConfig.Passwd = os.Getenv("DB_PASSWORD")
 	dbConfig.Net = "tcp"
-	dbConfig.DBName = "laravel"
-
-	var err error
+	dbConfig.DBName = os.Getenv("DB_DATABASE")
 
 	db, err = sql.Open("mysql", dbConfig.FormatDSN())
 
