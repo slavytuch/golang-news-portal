@@ -21,7 +21,18 @@
             <input type="file" name="image">
         </label>
         <br>
+        <br>
         <button>Save</button>
+    </form>
+
+    <br>
+    <div>
+        <a href="/detail/{{.Id}}">Back</a>
+    </div>
+    <br>
+
+    <form method="POST" action="/delete/{{.Id}}" onsubmit="return confirm('Are you sure that you want to delete this news?')">
+        <button style="color: red">DELETE</button>
     </form>
 </body>
 </html>
