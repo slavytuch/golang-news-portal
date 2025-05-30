@@ -11,8 +11,8 @@
         {{.Body}}
     </p>
 
-    {{ if .Image.Valid }}
-        <img src="/images/{{.Image.String}}" style="max-width: 100%"> <br>
+    {{ if .Image }}
+        <img src="/images/{{.Image}}" style="max-width: 100%"> <br>
     {{ end }}
 
     <a href="/edit/{{.Id}}">Edit</a>

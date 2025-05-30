@@ -4,13 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
-	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 
 	"github.com/go-sql-driver/mysql"
@@ -18,27 +16,6 @@ import (
 )
 
 var db *sql.DB
-
-func getNewsById(id int) (*NewsItem, error) {
-	row, err := db.Query("SELECT * FROM news WHERE id = ?", id)
-
-	if err != nil {
-		return nil, err
-	}
-
-	var newsItem NewsItem
-
-	row.Next()
-	if err := row.Scan(&newsItem.Id, &newsItem.Title, &newsItem.Body, &newsItem.Image); err != nil {
-		return nil, err
-	}
-
-	if err := row.Err(); err != nil {
-		return nil, err
-	}
-
-	return &newsItem, nil
-}
 
 func indexPageHandler(w http.ResponseWriter, r *http.Request) {
 	var newsList []NewsItem
@@ -80,7 +57,7 @@ func detailPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newsItem, err := getNewsById(newsId)
+	newsItem, err := LoadNewsItem(newsId)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -99,7 +76,7 @@ func editPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newsItem, err := getNewsById(newsId)
+	newsItem, err := LoadNewsItem(newsId)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -110,15 +87,8 @@ func editPageHandler(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, newsItem)
 }
 
-func updatePageHandler(w http.ResponseWriter, r *http.Request) {
+func updateNewsHandler(w http.ResponseWriter, r *http.Request) {
 	newsId, err := strconv.Atoi(r.PathValue("id"))
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	_, err = db.Exec("UPDATE news SET title = ?, body = ? WHERE id = ?", r.FormValue("title"), r.FormValue("body"), newsId)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -127,52 +97,30 @@ func updatePageHandler(w http.ResponseWriter, r *http.Request) {
 
 	file, header, err := r.FormFile("image")
 
+	var savedImage *string
+
 	if file != nil {
-
-		savedImage, err := saveImage(file, header)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		var currentImage string
-		db.QueryRow("SELECT image FROM news where id = ?", newsId).Scan(&currentImage)
-
-		fmt.Print("Current image:" + currentImage)
-
-		_, err = db.Exec("UPDATE news SET image = ? WHERE id = ?", savedImage, newsId)
+		savedImage, err = saveImage(file, header)
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+	}
 
-		if currentImage != "" {
-			os.Remove("./images/" + currentImage)
-		}
+	newsItem := NewsItem{Id: newsId, Title: r.FormValue("title"), Body: r.FormValue("body"), Image: savedImage}
+	err = newsItem.Save()
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	http.Redirect(w, r, "/detail/"+strconv.Itoa(newsId), http.StatusFound)
 }
 
 func saveImage(f multipart.File, h *multipart.FileHeader) (*string, error) {
-	imagesDir := filepath.Join(".", "images")
 
-	fullPath := imagesDir + "/" + h.Filename
-
-	fmt.Println(imagesDir)
-	fmt.Println(fullPath)
-
-	fd, err := os.OpenFile(fullPath, os.O_WRONLY|os.O_CREATE, os.ModePerm)
-
-	if err != nil {
-		return nil, err
-	}
-
-	defer fd.Close()
-
-	_, err = io.Copy(fd, f)
+	err := SaveImage(f, h.Filename)
 
 	if err != nil {
 		return nil, err
@@ -183,32 +131,14 @@ func saveImage(f multipart.File, h *multipart.FileHeader) (*string, error) {
 
 func createPageHandler(w http.ResponseWriter, r *http.Request) {
 
-	result, err := db.Exec("INSERT INTO news (title, body) VALUES (?, ?)", r.FormValue("title"), r.FormValue("body"))
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	insertedId, err := result.LastInsertId()
-
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	file, header, _ := r.FormFile("image")
+
+	var savedImage *string
+	var err error
 
 	if file != nil {
 
-		savedImage, err := saveImage(file, header)
-
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		_, err = db.Exec("UPDATE news SET image = ? WHERE id = ?", savedImage, insertedId)
+		savedImage, err = saveImage(file, header)
 
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -216,7 +146,17 @@ func createPageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.Redirect(w, r, "/detail/"+strconv.Itoa(int(insertedId)), http.StatusFound)
+	n, err := CreateNewsItem(r.FormValue("title"), r.FormValue("body"), savedImage)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	if n == nil {
+		http.Error(w, "Error loading news item", http.StatusInternalServerError)
+	}
+
+	http.Redirect(w, r, "/detail/"+strconv.Itoa(*n), http.StatusFound)
 }
 
 func creationPageHandler(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +202,7 @@ func main() {
 	mux.HandleFunc("GET /", indexPageHandler)
 	mux.HandleFunc("GET /detail/{id}", detailPageHandler)
 	mux.HandleFunc("GET /edit/{id}", editPageHandler)
-	mux.HandleFunc("POST /update/{id}", updatePageHandler)
+	mux.HandleFunc("POST /update/{id}", updateNewsHandler)
 	mux.HandleFunc("GET /new/", creationPageHandler)
 	mux.HandleFunc("POST /create/", createPageHandler)
 	mux.Handle("GET /images/", http.StripPrefix("/images", http.FileServer(http.Dir(path.Join(rootdir, "images/")))))
